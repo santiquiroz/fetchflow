@@ -1,0 +1,31 @@
+[project]
+name = "fetchflow"
+version = "0.1.0"
+description = "yt-dlp embebible: progreso tipado, cancelacion, y las trampas de integracion ya resueltas."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  # Se toma del WHEEL de PyPI y nunca del ejecutable prebuilt: yt-dlp es The Unlicense,
+  # pero su .exe de PyInstaller incluye codigo GPLv3+ y el trabajo combinado pasa a ser
+  # GPLv3+. El repo git, el sdist y el wheel solo traen codigo Unlicense.
+  #
+  # Sin techo de version a proposito: libera casi mensualmente para seguirle el paso a
+  # las defensas de los sitios, y quedarse atras es cuando deja de servir.
+  "yt-dlp>=2026.7.1",
+  # Impersonation de TLS/HTTP. No es opcional en la practica: medido, Dailymotion
+  # fallaba con "none of these impersonate targets are available" y paso a funcionar
+  # apenas se instalo -- de 0 a 37 targets. El rango lo dicta yt-dlp en su extra.
+  "curl-cffi>=0.5.10,<0.16; implementation_name == 'cpython'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.0,<9.0.0"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fetchflow*"]
+[tool.pytest.ini_options]
