@@ -7,6 +7,7 @@ NO envuelve la extraccion: eso es yt-dlp y son 210.000 lineas de trabajo que nad
 deberia reescribir.
 """
 
+from fetchflow.errors import RATE_LIMIT_MESSAGE, describe_failure, looks_rate_limited
 from fetchflow.engine import (
     FetchCancelled,
     FetchProgress,
@@ -34,6 +35,9 @@ __all__ = [
     "FetchRequest",
     "FetchUnavailable",
     "MediaInfo",
+    "RATE_LIMIT_MESSAGE",
+    "describe_failure",
+    "looks_rate_limited",
     "build_plan",
     "download",
     "probe",
