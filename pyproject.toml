@@ -5,6 +5,18 @@ description = "yt-dlp embebible: progreso tipado, cancelacion, y las trampas de 
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+authors = [{ name = "Santiago Quiroz" }]
+keywords = ["yt-dlp", "downloader", "video", "media", "embeddable"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Software Development :: Libraries",
+]
 dependencies = [
   # Se toma del WHEEL de PyPI y nunca del ejecutable prebuilt: yt-dlp es The Unlicense,
   # pero su .exe de PyInstaller incluye codigo GPLv3+ y el trabajo combinado pasa a ser
@@ -18,6 +30,10 @@ dependencies = [
   # apenas se instalo -- de 0 a 37 targets. El rango lo dicta yt-dlp en su extra.
   "curl-cffi>=0.5.10,<0.16; implementation_name == 'cpython'",
 ]
+
+[project.urls]
+Homepage = "https://github.com/santiquiroz/fetchflow"
+Issues = "https://github.com/santiquiroz/fetchflow/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0,<9.0.0"]
