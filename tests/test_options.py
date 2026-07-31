@@ -195,3 +195,73 @@ def test_the_output_lands_where_it_was_asked_for():
     plan = build_plan(make_request(output_dir=Path("/descargas")), FFMPEG_BIN)
 
     assert str(Path("/descargas")) in plan.options["outtmpl"]
+
+
+# ---------------------------------------------------------------------------
+# Formato de salida y calidad de audio
+# ---------------------------------------------------------------------------
+
+
+def test_audio_defaults_to_best_vbr_mp3():
+    # El default historico se mantiene: mp3 con la mejor calidad variable.
+    plan = build_plan(make_request(audio_only=True), FFMPEG_BIN)
+
+    postprocessor = plan.options["postprocessors"][0]
+    assert postprocessor["preferredcodec"] == "mp3"
+    assert postprocessor["preferredquality"] == "0"
+
+
+def test_the_chosen_audio_format_reaches_the_postprocessor():
+    plan = build_plan(make_request(audio_only=True, audio_format="flac"), FFMPEG_BIN)
+
+    assert plan.options["postprocessors"][0]["preferredcodec"] == "flac"
+
+
+def test_a_bitrate_becomes_the_preferred_quality():
+    plan = build_plan(
+        make_request(audio_only=True, audio_bitrate_kbps=192), FFMPEG_BIN
+    )
+
+    assert plan.options["postprocessors"][0]["preferredquality"] == "192"
+
+
+def test_lossless_formats_ignore_the_bitrate():
+    # FLAC/WAV no tienen bitrate elegible; pasarselo a ffmpeg seria una invocacion
+    # invalida, asi que se descarta en el plan y no en la UI.
+    plan = build_plan(
+        make_request(audio_only=True, audio_format="flac", audio_bitrate_kbps=192),
+        FFMPEG_BIN,
+    )
+
+    assert plan.options["postprocessors"][0]["preferredquality"] == "0"
+
+
+def test_an_unknown_audio_format_is_refused():
+    with pytest.raises(ValueError, match="audio_format"):
+        build_plan(make_request(audio_only=True, audio_format="ogg"), FFMPEG_BIN)
+
+
+def test_an_arbitrary_bitrate_is_refused():
+    with pytest.raises(ValueError, match="audio_bitrate"):
+        build_plan(
+            make_request(audio_only=True, audio_bitrate_kbps=999), FFMPEG_BIN
+        )
+
+
+def test_audio_knobs_are_only_validated_when_audio_is_wanted():
+    # Mismo criterio que playlist_limit: un knob absurdo no rompe un pedido que no
+    # lo usa.
+    build_plan(make_request(audio_format="ogg", audio_bitrate_kbps=999), FFMPEG_BIN)
+
+
+def test_the_chosen_container_reaches_the_merge():
+    plan = build_plan(make_request(video_container="mkv"), FFMPEG_BIN)
+
+    assert plan.options["merge_output_format"] == "mkv"
+
+
+def test_an_unknown_container_is_refused():
+    # webm queda afuera a proposito: como contenedor de merge con streams h264 el
+    # remux de ffmpeg falla. mkv acepta cualquier stream.
+    with pytest.raises(ValueError, match="video_container"):
+        build_plan(make_request(video_container="webm"), FFMPEG_BIN)

@@ -32,6 +32,20 @@ MAX_PLAYLIST_ITEMS = 50
 # entradas SIN FIN incluso en modo plano: sin este tope el probe no retorna nunca.
 PROBE_PLAYLIST_LIMIT = 100
 
+# Formatos de audio ofrecidos. Los lossless no tienen bitrate elegible: el plan
+# descarta el bitrate para ellos en vez de pasarle a ffmpeg una invocacion invalida.
+AUDIO_FORMATS: tuple[str, ...] = ("mp3", "m4a", "opus", "flac", "wav")
+LOSSLESS_AUDIO_FORMATS: tuple[str, ...] = ("flac", "wav")
+DEFAULT_AUDIO_FORMAT = "mp3"
+# None = mejor calidad variable ("0" para ffmpeg). Bitrates fijos solo para lossy.
+ALLOWED_AUDIO_BITRATES_KBPS: tuple[int, ...] = (128, 192, 256, 320)
+
+# Contenedores de merge para video. webm queda afuera a proposito: con streams h264
+# (lo que dan casi todos los sitios) el remux de ffmpeg falla; mkv acepta cualquier
+# stream y mp4 es el default compatible.
+VIDEO_CONTAINERS: tuple[str, ...] = ("mp4", "mkv")
+DEFAULT_VIDEO_CONTAINER = "mp4"
+
 # Pausa entre pedidos. NO es prudencia teorica: sin esto YouTube corta la sesion con
 # "the current session has been rate-limited by YouTube for up to an hour" -- se
 # reprodujo probando la app, y una hora de espera por unos pocos pedidos seguidos es
@@ -49,6 +63,10 @@ class FetchRequest:
     output_dir: Path
     max_height: int = DEFAULT_MAX_HEIGHT
     audio_only: bool = False
+    audio_format: str = DEFAULT_AUDIO_FORMAT
+    # None = mejor calidad variable; un numero = bitrate fijo (solo formatos lossy).
+    audio_bitrate_kbps: int | None = None
+    video_container: str = DEFAULT_VIDEO_CONTAINER
     # Una playlist se trata como UN item salvo que se pida lo contrario, explicito.
     include_playlist: bool = False
     playlist_limit: int = 10
@@ -70,6 +88,36 @@ def validate_max_height(max_height: int) -> None:
         raise ValueError(
             f"max_height debe ser uno de {list(ALLOWED_MAX_HEIGHTS)}, no {max_height}"
         )
+
+
+def validate_audio_format(audio_format: str) -> None:
+    if audio_format not in AUDIO_FORMATS:
+        raise ValueError(
+            f"audio_format debe ser uno de {list(AUDIO_FORMATS)}, no {audio_format!r}"
+        )
+
+
+def validate_audio_bitrate(bitrate_kbps: int | None) -> None:
+    if bitrate_kbps is None:
+        return
+    if bitrate_kbps not in ALLOWED_AUDIO_BITRATES_KBPS:
+        raise ValueError(
+            f"audio_bitrate_kbps debe ser uno de {list(ALLOWED_AUDIO_BITRATES_KBPS)} "
+            f"o None, no {bitrate_kbps}"
+        )
+
+
+def validate_video_container(container: str) -> None:
+    if container not in VIDEO_CONTAINERS:
+        raise ValueError(
+            f"video_container debe ser uno de {list(VIDEO_CONTAINERS)}, no {container!r}"
+        )
+
+
+def audio_quality_for(audio_format: str, bitrate_kbps: int | None) -> str:
+    if bitrate_kbps is None or audio_format in LOSSLESS_AUDIO_FORMATS:
+        return "0"
+    return str(bitrate_kbps)
 
 
 def validate_playlist_limit(limit: int) -> None:
@@ -105,6 +153,13 @@ def build_plan(request: FetchRequest, ffmpeg_bin_dir: Path) -> FetchPlan:
     validate_max_height(request.max_height)
     if request.include_playlist:
         validate_playlist_limit(request.playlist_limit)
+    # Mismo criterio que playlist_limit: cada knob se valida solo cuando el pedido
+    # lo usa, para que uno absurdo no rompa un pedido que ni lo mira.
+    if request.audio_only:
+        validate_audio_format(request.audio_format)
+        validate_audio_bitrate(request.audio_bitrate_kbps)
+    else:
+        validate_video_container(request.video_container)
 
     options: dict = {
         "outtmpl": str(request.output_dir / output_template(request.include_playlist)),
@@ -133,11 +188,16 @@ def build_plan(request: FetchRequest, ffmpeg_bin_dir: Path) -> FetchPlan:
 
     if request.audio_only:
         options["postprocessors"] = [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "0"}
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": request.audio_format,
+                "preferredquality": audio_quality_for(
+                    request.audio_format, request.audio_bitrate_kbps
+                ),
+            }
         ]
     else:
-        # mp4 salvo que el contenido no entre; yt-dlp cae solo a mkv cuando hace falta.
-        options["merge_output_format"] = "mp4"
+        options["merge_output_format"] = request.video_container
 
     if request.subtitle_languages:
         options["writesubtitles"] = True
