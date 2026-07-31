@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from fetchflow.options import (
     EXTRACTOR_RETRIES,
+    PROBE_PLAYLIST_LIMIT,
     SLEEP_BETWEEN_REQUESTS_SECONDS,
     FetchPlan,
 )
@@ -133,6 +134,12 @@ def probe(url: str) -> MediaInfo:
         "sleep_interval_requests": SLEEP_BETWEEN_REQUESTS_SECONDS,
         "extractor_retries": EXTRACTOR_RETRIES,
         "color": "no_color",
+        # Una playlist se reporta PLANA: sin esto extract_info resuelve cada entrada
+        # con sus propios pedidos de red, y un Mix de YouTube (list=RD..., entradas
+        # sin fin) no retorna nunca -- en produccion dejo al worker de descargas
+        # preso mas de una hora. El techo cubre que el extractor ignore el plano.
+        "extract_flat": "in_playlist",
+        "playlistend": PROBE_PLAYLIST_LIMIT,
     }
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=False)

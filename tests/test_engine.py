@@ -228,6 +228,90 @@ def test_info_without_downloads_yields_nothing_instead_of_failing():
 
 
 # ---------------------------------------------------------------------------
+# El probe y las playlists
+#
+# Un Mix de YouTube (watch?v=X&list=RDX) genera entradas SIN FIN. Sin extract_flat el
+# probe resolvia cada entrada con sus propios pedidos de red y no retornaba nunca --
+# paso en produccion: el worker de descargas quedo preso mas de una hora.
+# ---------------------------------------------------------------------------
+
+
+class _FakeYoutubeDL:
+    captured_options: dict | None = None
+    info: dict = {}
+
+    def __init__(self, options):
+        type(self).captured_options = options
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def extract_info(self, url, download=False):
+        return type(self).info
+
+
+class _FakeYtDlpModule:
+    YoutubeDL = _FakeYoutubeDL
+
+
+def _probe_with(monkeypatch, info):
+    from fetchflow import engine
+
+    _FakeYoutubeDL.info = info
+    _FakeYoutubeDL.captured_options = None
+    monkeypatch.setattr(engine, "_require_yt_dlp", lambda: _FakeYtDlpModule)
+    return engine.probe("https://example.com/watch?v=x")
+
+
+def test_probe_asks_for_flat_playlists_with_a_ceiling(monkeypatch):
+    from fetchflow.options import PROBE_PLAYLIST_LIMIT
+
+    _probe_with(monkeypatch, {"title": "t", "extractor_key": "Youtube"})
+
+    options = _FakeYoutubeDL.captured_options
+    assert options["extract_flat"] == "in_playlist"
+    assert options["playlistend"] == PROBE_PLAYLIST_LIMIT
+
+
+def test_probe_of_a_flat_playlist_reports_it_without_resolving_entries(monkeypatch):
+    # Entradas planas: sin "formats". El probe tiene que reportar la playlist igual,
+    # con alturas vacias, en vez de explotar o salir a la red por cada entrada.
+    info = _probe_with(
+        monkeypatch,
+        {
+            "title": "Mix",
+            "extractor_key": "YoutubeMusicSearchURL",
+            "entries": [
+                {"title": "a", "id": "1"},
+                {"title": "b", "id": "2"},
+            ],
+        },
+    )
+
+    assert info.is_playlist is True
+    assert info.entry_count == 2
+    assert info.available_heights == ()
+
+
+def test_probe_of_a_single_video_still_reports_heights(monkeypatch):
+    info = _probe_with(
+        monkeypatch,
+        {
+            "title": "video",
+            "extractor_key": "Youtube",
+            "duration": 90,
+            "formats": [{"height": 720, "vcodec": "avc1"}],
+        },
+    )
+
+    assert info.is_playlist is False
+    assert info.available_heights == (720,)
+
+
+# ---------------------------------------------------------------------------
 # Alturas ofrecidas
 # ---------------------------------------------------------------------------
 

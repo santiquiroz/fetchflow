@@ -28,6 +28,10 @@ ALLOWED_MAX_HEIGHTS: tuple[int, ...] = (360, 480, 720, 1080, 1440, 2160)
 # videos sin querer -- la queja mas repetida en los foros de descargadores.
 MAX_PLAYLIST_ITEMS = 50
 
+# Techo del probe al enumerar una playlist. Los Mixes de YouTube (list=RD...) generan
+# entradas SIN FIN incluso en modo plano: sin este tope el probe no retorna nunca.
+PROBE_PLAYLIST_LIMIT = 100
+
 # Pausa entre pedidos. NO es prudencia teorica: sin esto YouTube corta la sesion con
 # "the current session has been rate-limited by YouTube for up to an hour" -- se
 # reprodujo probando la app, y una hora de espera por unos pocos pedidos seguidos es
