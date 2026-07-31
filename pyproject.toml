@@ -1,6 +1,6 @@
 [project]
 name = "fetchflow"
-version = "0.2.0"
+version = "0.2.1"
 description = "yt-dlp embebible: progreso tipado, cancelacion, y las trampas de integracion ya resueltas."
 readme = "README.md"
 requires-python = ">=3.11"

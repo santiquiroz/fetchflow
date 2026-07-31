@@ -52,6 +52,7 @@ class MediaInfo:
     is_playlist: bool
     entry_count: int
     available_heights: tuple[int, ...]
+    thumbnail_url: str | None = None
 
 
 def _require_yt_dlp():
@@ -116,6 +117,23 @@ def _produced_files(info: dict[str, Any]) -> list[Path]:
     return paths
 
 
+def _thumbnail_of(entry: dict[str, Any]) -> str | None:
+    """La miniatura de un item, venga como venga.
+
+    Un video suelto trae "thumbnail"; las entradas planas de una playlist traen la
+    lista "thumbnails" (la ultima es la mas grande, orden de yt-dlp).
+    """
+    direct = entry.get("thumbnail")
+    if direct:
+        return direct
+    thumbnails = entry.get("thumbnails") or []
+    for candidate in reversed(thumbnails):
+        url = candidate.get("url") if isinstance(candidate, dict) else None
+        if url:
+            return url
+    return None
+
+
 def probe(url: str) -> MediaInfo:
     """Que hay en esta URL, sin descargar nada.
 
@@ -156,6 +174,7 @@ def probe(url: str) -> MediaInfo:
             is_playlist=True,
             entry_count=len(entries),
             available_heights=_heights_from_formats(first.get("formats") or []),
+            thumbnail_url=_thumbnail_of(first),
         )
 
     return MediaInfo(
@@ -166,6 +185,7 @@ def probe(url: str) -> MediaInfo:
         is_playlist=False,
         entry_count=1,
         available_heights=_heights_from_formats(info.get("formats") or []),
+        thumbnail_url=_thumbnail_of(info),
     )
 
 

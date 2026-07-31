@@ -332,3 +332,39 @@ def test_storyboard_formats_are_not_offered_as_qualities():
     ]
 
     assert _heights_from_formats(formats) == (360, 1080)
+
+
+def test_probe_of_a_single_video_carries_its_thumbnail(monkeypatch):
+    info = _probe_with(
+        monkeypatch,
+        {
+            "title": "video",
+            "extractor_key": "Youtube",
+            "thumbnail": "https://i.ytimg.com/vi/x/max.jpg",
+        },
+    )
+
+    assert info.thumbnail_url == "https://i.ytimg.com/vi/x/max.jpg"
+
+
+def test_probe_of_a_playlist_takes_the_first_entrys_thumbnail(monkeypatch):
+    # Las entradas planas no traen "thumbnail" suelto sino la lista "thumbnails".
+    info = _probe_with(
+        monkeypatch,
+        {
+            "title": "Mix",
+            "extractor_key": "Youtube",
+            "entries": [
+                {"title": "a", "thumbnails": [{"url": "https://i.ytimg.com/vi/a/small.jpg"}, {"url": "https://i.ytimg.com/vi/a/big.jpg"}]},
+                {"title": "b"},
+            ],
+        },
+    )
+
+    assert info.thumbnail_url == "https://i.ytimg.com/vi/a/big.jpg"
+
+
+def test_a_missing_thumbnail_is_none_and_not_an_error(monkeypatch):
+    info = _probe_with(monkeypatch, {"title": "t", "extractor_key": "Youtube"})
+
+    assert info.thumbnail_url is None
